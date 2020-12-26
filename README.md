@@ -25,8 +25,11 @@ dependencies {
     implementation 'com.github.kswlee:android-vital-fix:Tag'
 }
   
-// Call ActivityThreadHooker().hook() directly in onCreate or attachBaseContext in your Application implementation
-ActivityThreadHooker().hook() 
+VitalFixer.Builder()
+   .remoteServiceException() // auto fix remote service exception 
+   .sharePrefANRByService() // auto fix sharePreferences ANR for service operations 
+   .sharePrefANRByActivity() // auto fix sharePreferences 
+   .fix()
 
 // Or extend VitalFixApplication to fix vital issues directly 
 class GoApplication : VitalFixApplication() {
