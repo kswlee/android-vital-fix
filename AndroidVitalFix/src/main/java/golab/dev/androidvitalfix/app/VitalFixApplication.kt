@@ -2,7 +2,7 @@ package golab.dev.androidvitalfix.app
 
 import android.app.Application
 import android.content.Context
-import golab.dev.androidvitalfix.ActivityThreadHooker
+import golab.dev.androidvitalfix.VitalFixer
 
 
 /**
@@ -13,6 +13,10 @@ import golab.dev.androidvitalfix.ActivityThreadHooker
 open class VitalFixApplication : Application() {
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
-        ActivityThreadHooker().hook()
+        VitalFixer.Builder()
+            .remoteServiceException()
+            .sharePrefANRByService()
+            .sharePrefANRByActivity()
+            .fix()
     }
 }

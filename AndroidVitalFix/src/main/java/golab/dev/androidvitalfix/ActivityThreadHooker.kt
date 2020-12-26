@@ -3,6 +3,7 @@ package golab.dev.androidvitalfix
 import android.os.Build
 import android.os.Handler
 import android.os.Message
+import golab.dev.androidvitalfix.app.QueuedWorkProxy
 import golab.dev.androidvitalfix.utils.Reflection
 
 /**
@@ -10,11 +11,12 @@ import golab.dev.androidvitalfix.utils.Reflection
  *
  * Use to hook ActivityThread handler callback to override system behavior
  */
-class ActivityThreadHooker {
-    companion object {
-        private const val sScheduleCrash = 134
-        private const val sActivityThreadName = "android.app.ActivityThread"
-    }
+object ActivityThreadHooker {
+    private const val sPauseActivity = 101
+    private const val sResumeActivity = 107
+    private const val sServiceArgs = 115
+    private const val sScheduleCrash = 134
+    private const val sActivityThreadName = "android.app.ActivityThread"
 
     private val msgHandlers: MutableMap<Int, (() -> Boolean)?> = mutableMapOf()
 
@@ -28,15 +30,50 @@ class ActivityThreadHooker {
         }
     }
 
-    init {
+    fun setupScheduleCrashHandler() {
         msgHandlers[sScheduleCrash] = {
             // Fix RemoteServiceException
             true
         }
     }
 
+    fun setupServiceArgsHandler() {
+        // Only apply to Android 5 ~ 7
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP ||
+            Build.VERSION.SDK_INT > Build.VERSION_CODES.N_MR1) {
+            return
+        }
+
+        msgHandlers[sServiceArgs] = {
+            QueuedWorkProxy.consumePendingWorks()
+            false
+        }
+    }
+
+    fun setupActivityArgsHandler() {
+        // Only apply to Android 5 ~ 7
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP ||
+            Build.VERSION.SDK_INT > Build.VERSION_CODES.N_MR1) {
+            return
+        }
+
+        val handler = {
+            QueuedWorkProxy.consumePendingWorks()
+            false
+        }
+
+        listOf(sPauseActivity, sResumeActivity).forEach {
+            msgHandlers[it] = handler
+        }
+    }
+
     fun hook() {
-        val requireHook = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        setupScheduleCrashHandler()
+        conditionalHook()
+    }
+
+    fun conditionalHook() {
+        val requireHook = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
         if (!requireHook) {
             return
         }
@@ -49,11 +86,17 @@ class ActivityThreadHooker {
     }
 
     private fun hookActivityThread() {
-        val activityThread = Reflection.getClassMember(sActivityThreadName,
-            "sCurrentActivityThread")
-        val internalHandler = Reflection.getClassMember(sActivityThreadName,
-            "mH", activityThread)
-        Reflection.setClassMember(Handler::class.java as Class<Any>, "mCallback",
-            internalHandler, callbackHandler)
+        val activityThread = Reflection.getClassMember(
+            sActivityThreadName,
+            "sCurrentActivityThread"
+        )
+        val internalHandler = Reflection.getClassMember(
+            sActivityThreadName,
+            "mH", activityThread
+        )
+        Reflection.setClassMember(
+            Handler::class.java as Class<Any>, "mCallback",
+            internalHandler, callbackHandler
+        )
     }
 }
