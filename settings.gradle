@@ -1,3 +1,3 @@
 include ':AndroidVitalFix'
 include ':app'
-rootProject.name = "AndroidVitalFix"
+rootProject.name = "AndroidVitalFixLib"
